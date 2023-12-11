@@ -3,6 +3,8 @@ from pygame.locals import *
 from funciones import *
 from config import *
 from sound import *
+import random
+import csv
 
 pygame.init()
 
@@ -41,44 +43,50 @@ y_enemigo = 400
 run = True
 clock = pygame.time.Clock()
 menu_estado = "menu"
+ingresando_nombre = True
 
 
 while run:
-    sound.play()
     #detectar los eventos
     # MENU JUEGO 
     if menu_estado =="menu":
+        menu_inicio(font)
         for event in pygame.event.get():
             if event.type == QUIT: 
                 run = False
             keys = pygame.key.get_pressed()
             if keys[K_ESCAPE]:
                 menu_estado = "jugar"
+                sound.play()
+                sound.set_volume(volumen_inicial)
             if keys[K_q]:  # Si se presiona la tecla 'q', se sale del juego
                 run = False
-        screen.fill(BLACK)
-        text_surface_welcome = font.render("¡Bienvenido!", True, CYAN)
-        text_rect_welcome = text_surface_welcome.get_rect(center=(WIDTH // 2, HEIGHT // 6.5))
-        text_surface_continue = font.render("Continuar al juego(""Presione esc"")", True, RED)
-        text_rect_continue = text_surface_continue.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-        text_surface_exit = font.render("Salir del juego (""presione q"")", True, GREEN)
-        text_rect_exit = text_surface_exit.get_rect(center=(WIDTH // 2, HEIGHT // 1.5))
         
-        screen.blit(text_surface_welcome, text_rect_welcome)    
-        screen.blit(text_surface_continue, text_rect_continue)
-        screen.blit(text_surface_exit, text_rect_exit)
     
     # Actualizar la pantalla
     pygame.display.flip()
     #FIN DEL JUEGO  
     if menu_estado == "game over": 
-        screen.fill(BLACK)
-        text_surface = font.render("Game Over", True, (255, 0, 0))
-        text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-        screen.blit(text_surface, text_rect)
-        for event in pygame.event.get():
-            if event.type == QUIT: 
-                run = False
+
+        for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+        sound.stop()
+
+        nombre = ""
+        if(ingresando_nombre):
+            nombre = cargar_nombre(font)
+            ingresando_nombre = False
+
+        
+###########Guardar puntajes ###########
+        if(guardar_puntaje):
+                guardar_puntajes("puntajes.csv", nombre, score)
+                guardar_puntaje = False
+
+        puntajes = cargar_score()
+        mostrar_tabla(puntajes, font)
         
 #JUEGO 
     if  menu_estado == "jugar":
@@ -105,70 +113,21 @@ while run:
         snake_head = snake_segments[0]["rect"]
 
     # Actualiza la posición de la serpiente
-        if snake_direction == 0:
-            new_head = {
-                "rect": pygame.Rect(
-                    snake_segments[0]["rect"].left,
-                    snake_segments[0]["rect"].top - (snake_speed + segment_spacing),
-                    rect_width,
-                    rect_height,
-                ),
-                "dir": snake_direction,
-            }
-        elif snake_direction == 1:
-            new_head = {
-                "rect": pygame.Rect(
-                    snake_segments[0]["rect"].left,
-                    snake_segments[0]["rect"].top + (snake_speed + segment_spacing),
-                    rect_width,
-                    rect_height,
-                ),
-                "dir": snake_direction,
-            }
-        elif snake_direction == 2:
-            new_head = {
-                "rect": pygame.Rect(
-                    snake_segments[0]["rect"].left - (snake_speed + segment_spacing),
-                    snake_segments[0]["rect"].top,
-                    rect_width,
-                    rect_height,
-                ),
-                "dir": snake_direction,
-            }
-        elif snake_direction == 3:
-            new_head = {
-                "rect": pygame.Rect(
-                    snake_segments[0]["rect"].left + (snake_speed + segment_spacing),
-                    snake_segments[0]["rect"].top,
-                    rect_width,
-                    rect_height,
-                ),
-                "dir": snake_direction,
-            }
+        new_head = movimiento_serpiente(snake_segments, snake_direction)
         snake_segments[0] = new_head 
         
         # Verificar colisión con la pared
 
-        if (
-            new_head["rect"].left < 0
-            or new_head["rect"].right > WIDTH
-            or new_head["rect"].top < 0
-            or new_head["rect"].bottom > HEIGHT
-    
-            
-        
-        ):
+        if (new_head["rect"].left < 0 or new_head["rect"].right > WIDTH or new_head["rect"].top < 0 or new_head["rect"].bottom > HEIGHT):
             vida_snake -= 1
             if vida_snake == 0:
                 menu_estado = "game over"
             snake_length = 2
             snake_segments[0]["rect"].center = (WIDTH // 2, HEIGHT // 2)
-            
-            
         
         coin_rect = pygame.Rect(coin_dict['x'], coin_dict['y'], 25, 25)  # Rectángulo de la moneda actual
 
-        if ( colision_2_rect(coin_rect,new_head["rect"])):
+        if (colision_2_rect(coin_rect,new_head["rect"])):
 
             score += 1
             text_score = font.render(f"Level:  1  Score = {score}", True, BLACK)
@@ -177,11 +136,14 @@ while run:
             snake_length += 1  # Aumenta la longitud de la serpiente
         
         if ( colision_2_rect(rect_enemigo,new_head["rect"])):
-            vida_snake -= 1
-            x_enemigo = random.randint(0,750)
-            y_enemigo = random.randint(100,550)
-            rect_enemigo.x = x_enemigo
-            rect_enemigo.y = y_enemigo
+            if(vida_snake == 0):
+                menu_estado = "game over"
+            else:
+                vida_snake -= 1
+                x_enemigo = random.randint(0,750)
+                y_enemigo = random.randint(100,550)
+                rect_enemigo.x = x_enemigo
+                rect_enemigo.y = y_enemigo
         
         current_time = pygame.time.get_ticks()
     
